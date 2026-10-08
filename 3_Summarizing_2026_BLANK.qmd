@@ -50,17 +50,18 @@ library(tidyverse)
 ### Example using summarize to make a nice summary table of some old owl limpet data:
 
 ```{r}
-Size_summary <-  %>% 
-  group_by() 
-  summarize(), # mean 
-            sd_size = ,  # standard deviation
-            n = , # count
-            se_size =  # standard error
-  mutate_at(), # bonus line to reduce digits
-            .funs = ) 
+Size_summary <- CCdata_tidy |> 
+  group_by(Impact, Year, Season, Survey_Date) 
+  summarize(
+    mean_size = mean(Size, na.rm = TRUE), # mean 
+            sd_size = sd(size, na.rm = TRUE), #standard deviation
+            n =n() # count
+        sd_size = sd_size/sqrt(n) |> #standard error
+  mutate_at(vars(mean_size, sd_state, se_size),  # bonus line to reduce digits
+            .funs =round, 2)
 
 Size_summary %>% 
-  select() 
+  select(Survey_Date
   knitr
 ```
 
