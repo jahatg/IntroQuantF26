@@ -42,7 +42,9 @@ Start with: `SizeData_2022_2025`
 Make a histogram with all the data.
 
 ```{r}
-ggplot(SizeData_2022_2025) +
+ggplot(SizeData_2022_2025) +   
+  aes( x = shell_length_mm) + 
+  geom_histogram()
 
 ```
 
@@ -50,6 +52,9 @@ Make a histogram with a `facet_wrap()` to separate the data from each site and y
 
 ```{r}
 ggplot(SizeData_2022_2025) +
+  aes( x = shell_length_mm) + 
+  geom_histogram() + 
+  facet_wrap(year~site)
 
 ```
 
@@ -57,6 +62,9 @@ We know our minimum size cut-off varied in different years of the surveys, and s
 
 ```{r}
 SizeData_2022_2025 <- SizeData_2022_2025 |> 
+  filter(shell_length_mm > 15) 
+
+SizeData_2022_2025
 ```
 
 ### 1.2 How long were the transects at each site?
@@ -65,7 +73,9 @@ Make a table using `select()` and `distinct()` to only show the length of each t
 
 ```{r}
 TransectLengths <- SizeData_2022_2025 |> 
-  
+  select(site, transect_num, transect_length_m) %>%
+  distinct(site, transect_num, transect_length_m) %>%
+  arrange(site, transect_num)
   
   
 
@@ -82,14 +92,24 @@ Visualize the transect lengths two different ways.
 
 ```{r}
 TransectLengths |> ggplot() +
+  aes(x=site, y = transect_length_m)+
+  geom_boxplot()
 
   
 
 TransectLengths |> ggplot() +
+  aes(x = site, y = transect_length_m)+
+  geom_point()
 
 
 TransectLengths |> ggplot() +
-
+  aes(x = site, y=transect_length_m)+
+  geom_boxplot() + 
+  geom_point(colour = "brown") +
+  ggtitle("Transect Length at Each Site")+
+  xlab("Site")+
+  ylab("Transect Length (m)")
+  
   
   
 ```
@@ -98,23 +118,33 @@ THINKING QUESTIONS: Do we have the number of transects that we expect to in our 
 
 ANSWER: Our methods have been a little inconsistent. We used different methods at Shaws Cove and Heisler than we did at Treasure Cove. At Treasure Cove, we have used 5 meter long set length transects. At Shaws Cove and Heisler, we ran transects of variable length from the high tide line to the lowest accessible part of the intertidal. At both sites limpets were measured one meter from the tape on either side. In order to compare population density, we will need to eventually divide by transect length/area to get limpets per square meter.
 
-#### 1.3 Make two more graphs of your choosing to explore the data based on some other columns. Write a sentence under each that explains what your graph shows. 
+#### 1.3 Make two more graphs of your choosing to explore the data based on some other columns. Write a sentence under each that explains what your graph shows.
 
 Graph 1:
 
 ```{r}
-
+SizeData_2022_2025 |> ggplot() +
+  aes(x = year, y = shell_length_mm) +
+  geom_boxplot()
 ```
 
-This shows:
+This shows: This graph shows how shell length varies across different years, allowing us to compare the distribution and median shell length from 2022 to 2025.
 
 Graph 2:
 
 ```{r}
-
+SizeData_2022_2025 |> ggplot() +
+  aes(x = site, y = shell_length_mm, fill = site) +
+  stat_summary(fun = mean, geom = "bar") +
+  labs(
+    x = "Site",
+    y = "Average Shell Length (mm)",
+    title = "Average Shell Length by Site"
+  ) +
+  theme_minimal()
 ```
 
-This shows:
+This shows: This graph shows the distribution of shell lengths at each site and helps compare where shell sizes are more concentrated or more spread out.
 
 ## Part 2: Population Density
 
@@ -122,6 +152,8 @@ For the population density analysis, we will analyze data from Shaws Cove, Heisl
 
 ```{r}
 No_CDM_Sizes <- SizeData_2022_2025 |> 
+  filter(site !="Corona del Mar")
+No_CDM_Sizes
 ```
 
 #### 2.1. How many limpets did we measure at each site in each year for sizes?
@@ -133,12 +165,16 @@ No_CDM_Sizes
 
 # How many did we measure total, across both sites?
 No_CDM_Sizes |> 
+  nrow()
 
 ## How many did we measure at each site? 
 No_CDM_Sizes |> 
+  count(site)
 
 # How many did we measure in each transect? 
 No_CDM_Sizes |> 
+  group_by(site, transect_num) |> 
+  count(site)
 ```
 
 #### 2.2 What was the limpet density (i.e., limpets per square meter) for each transect?
@@ -147,6 +183,9 @@ Make a new dataframe out of the `No_CDM_Sizes` that has a column called *density
 
 ```{r}
 Limpet_Density <- No_CDM_Sizes |> 
+  group_by(site, year, transect_num, transect_length_m) |>
+  count(site) |>
+  mutate(density = (n/(transect_length_m*2)))
   
   
 
@@ -160,7 +199,14 @@ Do you see any patterns just from examining this table of values?
 What was the mean limpets per square meter across all sites? And the standard deviation? And standard error?
 
 ```{r}
-Limpet_Density |> 
+Limpet_Density <- No_CDM_Sizes |>
+  group_by(site, year, transect_num, transect_length_m) |>
+  count(site) |>
+  mutate(density = (n/(transect_length_m*2)))
+  mean(Limpet_Density$density, na.rm = TRUE)
+  sd(Limpet_Density$density, na.rm = TRUE)
+  sd(Limpet_Density$density, na.rm = TRUE)/sqrt(1746)
+
 
 
 ```
@@ -169,13 +215,15 @@ Now create a summary table in which you calculate separate mean and standard dev
 
 ```{r}
 # use summarize() to calculate the mean and standard error (sd/sqrt(n)) for the two locations
-LimpetPopSummary <- Limpet_Density |>
-  
-  
-  
-  
- 
-# Display your summary nicely using kable(). 
+Limpet_Density <- Limpet_Density |>
+  group_by(site, year) |>
+  summarize(mean_density = round(mean(density, na.rm = TRUE), 1), #Mean 
+            sd_density = sd(density, na.rm = TRUE), #SD
+            n = n(), #Count
+            sd_density = round((sd_density/sqrt(n)),1)) #std error 
+
+# Display your summary nicely using kable().
+
 knitr::kable(LimpetPopSummary)
 ```
 
@@ -184,17 +232,34 @@ knitr::kable(LimpetPopSummary)
 Boxplot, using the `Limpet_density` object, using fill for year. Label the Y-axis to say "Limpets per square meter".
 
 ```{r}
-Limpet_Density |> ggplot() + 
- 
-  
+Limpet_Density <- No_CDM_Sizes |>
+  group_by(site, year, transect_num, transect_length_m) |>
+  summarize(n = n(), .groups = "drop") |>
+  mutate(density = n / (transect_length_m * 2))
+
+Limpet_Density |> ggplot() +
+  aes(x = site, y = density, fill = factor(year)) +
+  geom_boxplot() +
+  labs(
+    x = "Site",
+    y = "Limpets per square meter",
+    fill = "Year",
+    title = "Limpet Density by Site and Year"
+  ) +
+  theme_minimal()
 ```
 
 A column plot with errorbars, and fill = year, using your new `LimpetPopSummary` object. Make sure to label the y-axis appropriately.
 
 ```{r}
-LimpetPopSummary |> ggplot()+
- 
-  
+LimpetPopSummary |> ggplot() + 
+  aes(x = site, y - mean_density, fill = year)+
+  geom_col(position = position_dodge())
+geom_errorbar(aes(ymin = mean_density - de_desnity, 
+                  ymax = mean_density + se_density),
+              position = position_dodge (0.9), 
+              width = 0.2) + 
+  ylab("Limpets per square meter")
   
 
 ```
@@ -202,14 +267,27 @@ LimpetPopSummary |> ggplot()+
 A `geom_point()` or `geom_jitter()`plot to visualize individual transect density observations
 
 ```{r}
-Limpet_Density |> ggplot() + 
-  
-  
-  
-  
+
+Limpet_Density |> ggplot() +
+  aes(x = factor(year), y = density) +
+  geom_jitter(
+    aes(fill = factor(site)),
+    shape = 21,
+    color = "beige",
+    size = 4,
+    width = 0.15
+  ) +
+  labs(
+    x = "Year",
+    y = "Limpets per square meter",
+    fill = "Site"
+  ) +
+  theme_minimal()
 ```
 
 Which plot do you find the most informative and useful and why?
+
+I find the boxplot the most informative because it compares limpet density between sites and years. It shows the median, spread, and potential outliers, making it easier to see differences in density.
 
 Based on these plots, does your data meet assumptions for a t-test?
 
@@ -223,44 +301,69 @@ T-Test assumptions (for a Student's T-test)
 
 - Is the distribution of the model residuals approximately normal?
 
-#### 2.5 What is the sample size (of transects) for each site/year for our study of limpet population density? 
+The data meets the continuous data assumption because limpet density (limpets per square meter) is a continuous measurement. However, it is uncertain whether the transects were randomly sampled, and the boxplots would need to be checked to determine whether the groups have similar variances. The normality of the residuals is also uncertain, especially if the data are skewed or contain outliers. Overall, the data may meet some assumptions for a t-test, but the variance and normality assumptions should be checked before proceeding.
+
+#### 2.5 What is the sample size (of transects) for each site/year for our study of limpet population density?
 
 Is it roughly the same so that we can compare? Is it enough to run a statistical test?
 
 ```{r}
+Sample_Sizes <- Limpet_Density |> 
+  group_by(site, year) |>
+  summarize(
+    n_transects = n_distinct(transect_num),
+    .groups = "drop"
+  )
+
+knitr::kable(Sample_Sizes)
+
 Limpet_Density |> 
+  group_by(site, year) |>
+  summarize(
+    n_transects = n_distinct(transect_num),
+    .groups = "drop")
+
+Sample_Sizes
 ```
 
-#### 2.6. Does average number of owl limpets per square meter differ significantly between Heisler Park and Shaws Cove? 
+#### 2.6. Does average number of owl limpets per square meter differ significantly between Heisler Park and Shaws Cove?
 
 Filter the data to only include those sites before putting it into the `t.test()` function. These are a good comparison because they were measured in the same year with the same survey methods.
 
 ```{r t-test}
 # run a t-test on your count data from each site (Limpet_Density)
 ShawsHeislerDensity <- Limpet_Density |> 
+  filter(site == "Treasure Cove")
 
-
-t.test(     , data = ShawsHeislerDensity)
-
+ShawsHeislerDensity
+t.test(density ~ site, data = ShawsHeislerDensity)
 ```
 
 Explain the results of this t-test. Are you surprised by this result, given the figure you made above? Why do you think the results are what they are?
+
+The t-test showed that there was no statistically significant difference in average limpet density between Heisler Park and Shaws Cove (t=−1.1649t = -1.1649, df=14.466df = 14.466, p=0.2629p = 0.2629). I am not very surprised by this result if the figure showed similar densities or overlapping distributions at the two sites. The results may be due to natural variation in limpet density between transects and variation within each site, making the difference between the averages too small to be statistically significant.
 
 #### 2.7 Did Treasure Cove population density differ between the two sample years? Do a t-test and make a graph to complement presenting the result.
 
 ```{r}
 TC_density <- Limpet_Density |>
+  filter(site == "Treasure Cove")
 
-t.test(    )
+TC_density 
+
+t.test(density ~ year, data = TC_density)
 ```
 
 Since there was no difference in means, we'll ignore year at Treasure Cove from now on and just pool our data to make it easier for ourselves.
 
-#### 2.8 EXTRA CREDIT:  Do an ANOVA comparing Shaws, Heisler, and Treasure Cove 2025 density data (exclude 2023 so that the sample size is similar between all three). Use a Tukey post-hoc test. Explain the results. 
+#### 2.8 EXTRA CREDIT: Do an ANOVA comparing Shaws, Heisler, and Treasure Cove 2025 density data (exclude 2023 so that the sample size is similar between all three). Use a Tukey post-hoc test. Explain the results.
 
 ```{r}
+LimpetDensity2025 <- Limpet_Density |>
+  filter(year == 2025,
+         site %in% c("Shaws Cove", "Heisler Park", "Treasure Cove"))
 
-
+Limpet_ANOVA <- aov(density ~ site, data = LimpetDensity2025)
 ```
 
 ## Part 3: Size
@@ -272,7 +375,13 @@ Since there was no difference in means, we'll ignore year at Treasure Cove from 
 ```{r summary statistics }
 # generate a nice table (like you did for counts, using kable() and round digits) with the mean shell length, standard deviation, and sample size of each site. Ignore transect. 
 
-SizeData_2022_2025 |> 
+Shell_Length_Summary <- SizeData_2022_2025 |>
+  group_by(site) |>
+  summarize(
+    mean_shell_length = round(mean(shell_length_mm, na.rm = TRUE), 1),
+    sd_shell_length = round(sd(shell_length_mm, na.rm = TRUE), 1),
+    sample_size = sum(!is.na(shell_length_mm)),
+    .groups = "drop")
 
   
 ```
@@ -281,6 +390,8 @@ SizeData_2022_2025 |>
 
 ```{r}
 ggplot(SizeData_2022_2025) +
+  aes(x = site, y = shell_length_mm) + 
+  geom_boxplot(aes(fill = year))
 
   
   
@@ -305,16 +416,19 @@ T-Test assumptions (for a Student's T-test)
 
 # create the appropriate filter to include only Treasure Cove and CDM data
 CDM_TC_Sizes <- SizeData_2022_2025 |> 
+  filter(site == "Corona del Mar" | site == "Treasure Cove")
 
+CDM_TC_Sizes
   
 # set the linear model for testing the assumptions
-model <- lm(   )
+model <- lm(shell_length_mm ~ site, data = CDM_TC_Sizes)
+
 
 # Examine plot of Residuals vs. Fitted values
 plot(model, which = 1)
 
 # F-test for homogeneity of variance - if p-value < 0.05 then variances are different. 
-var.test(     )
+var.test(shell_length_mm ~ site, data = CDM_TC_Sizes) 
 
 # NOTE: if your sample fails this test, have no fear! Welch's t-test (the default that R uses) is okay to use with unequal variances. 
 
@@ -338,7 +452,7 @@ Why will we not pay attention to this Shapiro-Wilk test result? Because the samp
 
 ```{r t-test or Wilcox}
 # calculate the t-test results
-t.test(      )
+t.test(shell_length_mm ~ site, data = CDM_TC_Sizes, Var.equal = TRUE)
 ```
 
 #### [3.3 Graph your results using a column plot with error bars for standard error]{.underline}
@@ -346,7 +460,25 @@ t.test(      )
 For full credit, have well centered error bars and professionally labeled axes (they should not say "mean", they should say the variable name).
 
 ```{r}
-CDM_TC_Sizes |>
+CDMSizesummary <- CDM_TC_Sizes |>
+  group_by(site) |>
+  summarise(mean_size = round(mean(shell_length_mm, na.rm = TRUE), 1),
+            sd_size = sd(shell_length_mm, na.rm = TRUE), 
+            n=n(),
+            se_size = round((sd_size/sqrt(n)), 1))
+
+CDMSizesummary
+
+CDMSizesummary |> ggplot() + 
+  aes(x = site, y=mean_size) + 
+  geom_col(position = position_dodge(), fill = "purple") + 
+  geom_errorbar(aes(ymin = mean_size - se_size, 
+                    ymax = mean_size + se_size), 
+                position = position_dodge(0.9),
+                width = 0.2) + 
+  labs( y = "Mean Shell Length (mm)", 
+        x = "Site") + 
+    theme_classic()
   
 
 ```
@@ -363,7 +495,7 @@ If you would like to test whether size differs by predicted human impact, at CDM
 
 ```
 
-#### 3.6. MORE EXTRA CREDIT: conduct an ANOVA to test for differences in shell length between all four sites. Show your tests for all assumptions and make a graph. 
+#### 3.6. MORE EXTRA CREDIT: conduct an ANOVA to test for differences in shell length between all four sites. Show your tests for all assumptions and make a graph.
 
 ```{r}
 
